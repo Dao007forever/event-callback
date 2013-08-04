@@ -1,0 +1,11 @@
+{
+    "name": "event-callback",
+    "version": "0.0.1",
+    "private": true,
+    "scripts" : {
+        "start" : "node redis.js"
+    },
+    "dependencies": {
+        "redis": "0.8.4"
+    }
+}
