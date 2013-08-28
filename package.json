@@ -3,10 +3,11 @@
     "version": "0.0.1",
     "private": true,
     "scripts" : {
-        "start" : "node redis.js"
+        "start" : "node event.js"
     },
     "dependencies": {
         "redis": "0.8.4",
-        "request": "2.27.0"
+        "request": "2.27.0",
+        "hiredis": "0.1.15"
     }
 }
