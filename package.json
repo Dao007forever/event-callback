@@ -6,6 +6,7 @@
         "start" : "node redis.js"
     },
     "dependencies": {
-        "redis": "0.8.4"
+        "redis": "0.8.4",
+        "request": "2.27.0"
     }
 }
