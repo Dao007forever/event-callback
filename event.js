@@ -44,9 +44,19 @@ http.createServer(function (req, res) {
                 console.log("Register '" + json.event + "' => '" + json.action + "' with option '" + options + "'");
                 client.sadd("event:" + json.event, json.action);
                 if (options) {
+                    var expire;
+                    if (json.options.expire) {
+                        expire = parseInt(json.options.expire);
+                    } else {
+                        // 10 hours
+                        expire = 36000;
+                    }
+
                     client.incr("counter", function (err, reply) {
+                        var optionIndex = "option:" + reply;
                         client.sadd("action:" + json.event + ":" + json.action, reply);
-                        client.set("option:" + reply, options);
+                        client.set(optionIndex, options);
+                        client.expire(optionIndex, expire);
                     });
                 }
             } else if (json.type == "invoke") {
@@ -59,23 +69,33 @@ http.createServer(function (req, res) {
                             var eventAction = "action:" + json.event + ":" + action;
                             client.smembers(eventAction, function (err, options) {
                                 if (options && options.length > 0) {
+                                    console.log("Options: " + options);
                                     options.forEach(function (optionIndex, i) {
                                         var optionKey = "option:" + optionIndex;
+                                        console.log("Option key: " + optionKey);
                                         client.get(optionKey, function (err, option) {
-                                            console.log("Option: " + option);
-                                            var jsOption;
-                                            try {
-                                                jsOption = JSON.parse(option);
-                                            } catch (e) {
-                                                console.log(e);
-                                            }
-                                            if (jsOption) {
-                                                console.log(jsOption);
-                                                doPost(jsOption);
-                                                if (jsOption.durable !== true) {
-                                                    client.srem(eventAction, optionIndex);
-                                                    client.del(optionKey);
+                                            if (option) {
+                                                console.log("Option: " + option);
+                                                var jsOption;
+                                                try {
+                                                    jsOption = JSON.parse(option);
+                                                } catch (e) {
+                                                    console.log(e);
                                                 }
+                                                if (jsOption) {
+                                                    console.log(jsOption);
+                                                    doPost(jsOption);
+                                                    if (jsOption.durable !== true) {
+                                                        client.srem(eventAction, optionIndex)
+                                                        client.del(optionKey)
+                                                    } else {
+                                                        nonDurable = false;
+                                                    }
+                                                }
+                                            } else {
+                                                // it expired
+                                                console.log("Expired");
+                                                client.srem(eventAction, optionIndex);
                                             }
                                         });
                                     });
@@ -93,8 +113,13 @@ http.createServer(function (req, res) {
                 var event = "event:" + json.event;
                 var eventAction = "action:" + json.event + ":" + json.action;
                 if (!optionStr) {
-                    client.srem(event, json.action);
-                    client.del(eventAction);
+                    client.smembers(eventAction, function(err, options) {
+                        if (options) {
+                            client.srem(event, json.action);
+                            options.unshift(eventAction);
+                            client.del.apply(client, options);
+                        }
+                    });
                 } else {
                     client.smembers(eventAction, function (err, options) {
                         if (options && options.length > 0) {
