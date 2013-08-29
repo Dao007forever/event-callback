@@ -8,6 +8,7 @@
     "dependencies": {
         "redis": "0.8.4",
         "request": "2.27.0",
-        "hiredis": "0.1.15"
+        "hiredis": "0.1.15",
+        "q": "0.9.6"
     }
 }

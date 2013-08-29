@@ -3,6 +3,7 @@ var redis = require("redis");
 var http = require("http");
 var querystring = require("querystring");
 var request = require("request");
+var Q = require("q");
 // This auth_pass hasn't been released
 client = redis.createClient(19844, "pub-redis-19844.us-east-1-4.3.ec2.garantiadata.com", {auth_pass: "hoiio123kid"});
 client.auth("hoiio123kid", function () {
@@ -18,6 +19,17 @@ process.on("exit", function() {
     client.quit();
     console.log("About to exit");
 });
+
+var db = {
+    get: Q.nbind(client.get, client),
+    set: Q.nbind(client.set, client),
+    incr: Q.nbind(client.incr, client),
+    expire: Q.nbind(client.expire, client),
+    sadd: Q.nbind(client.sadd, client),
+    srem: Q.nbind(client.srem, client),
+    smembers: Q.nbind(client.smembers, client),
+    del: Q.nbind(client.del, client)
+}
 
 http.createServer(function (req, res) {
     req.content = "";
@@ -42,7 +54,7 @@ http.createServer(function (req, res) {
                     options = JSON.stringify(json.options);
                 }
                 console.log("Register '" + json.event + "' => '" + json.action + "' with option '" + options + "'");
-                client.sadd("event:" + json.event, json.action);
+                db.sadd("event:" + json.event, json.action);
                 if (options) {
                     var expire;
                     if (json.options.expire) {
@@ -52,57 +64,72 @@ http.createServer(function (req, res) {
                         expire = 36000;
                     }
 
-                    client.incr("counter", function (err, reply) {
-                        var optionIndex = "option:" + reply;
-                        client.sadd("action:" + json.event + ":" + json.action, reply);
-                        client.set(optionIndex, options);
-                        client.expire(optionIndex, expire);
-                    });
+                    db.incr("counter")
+                    .then(
+                        function (reply) {
+                            var optionIndex = "option:" + reply;
+                            db.sadd("action:" + json.event + ":" + json.action, reply);
+                            db.set(optionIndex, options);
+                            db.expire(optionIndex, expire);
+                        }
+                    ).done();
                 }
             } else if (json.type == "invoke") {
                 console.log(json.event + " happened");
                 var event = "event:" + json.event;
-                client.smembers(event, function(err, actions) {
-                    if (actions) {
-                        actions.forEach(function (action, i) {
+                db.smembers(event)
+                .then(function(actions) {
+                    console.log(actions);
+                    console.log("Actions: " + actions);
+                    return Q.all(actions.map(
+                        function (action) {
                             console.log("Do '" + action + "'");
+                            // TODO: wrap this and pass along with the promise
                             var eventAction = "action:" + json.event + ":" + action;
-                            client.smembers(eventAction, function (err, options) {
-                                if (options && options.length > 0) {
-                                    console.log("Options: " + options);
-                                    options.forEach(function (optionIndex, i) {
+                            return db.smembers(eventAction);
+                        })).then(
+                            function (options) {
+                                console.log(options);
+                                console.log("Options: " + options);
+                                var merged = [].concat.apply([], options);
+                                console.log(merged);
+                                return Q.all(merged.map(
+                                    function (optionIndex) {
                                         var optionKey = "option:" + optionIndex;
                                         console.log("Option key: " + optionKey);
-                                        client.get(optionKey, function (err, option) {
-                                            if (option) {
-                                                console.log("Option: " + option);
-                                                var jsOption;
-                                                try {
-                                                    jsOption = JSON.parse(option);
-                                                } catch (e) {
-                                                    console.log(e);
-                                                }
-                                                if (jsOption) {
-                                                    console.log(jsOption);
-                                                    doPost(jsOption);
-                                                    if (jsOption.durable !== true) {
-                                                        client.srem(eventAction, optionIndex)
-                                                        client.del(optionKey)
-                                                    } else {
-                                                        nonDurable = false;
+                                        return db.get(optionKey);
+                                    })).then(
+                                        function (options) {
+                                            console.log(options);
+                                            options.forEach(function (option) {
+                                                console.log("Testing");
+                                                if (option) {
+                                                    console.log("Option: " + option);
+                                                    var jsOption;
+                                                    try {
+                                                        jsOption = JSON.parse(option);
+                                                    } catch (e) {
+                                                        console.log(e);
                                                     }
+                                                    if (jsOption) {
+                                                        console.log(jsOption);
+                                                        doPost(jsOption);
+                                                        if (jsOption.durable !== true) {
+                                                            db.srem(eventAction, optionIndex)
+                                                            db.del(optionKey)
+                                                        } else {
+                                                            nonDurable = false;
+                                                        }
+                                                    }
+                                                } else {
+                                                    // it expired
+                                                    console.log("Expired");
+                                                    db.srem(eventAction, optionIndex).done();
                                                 }
-                                            } else {
-                                                // it expired
-                                                console.log("Expired");
-                                                client.srem(eventAction, optionIndex);
-                                            }
-                                        });
-                                    });
-                                }
+                                            });
+                                        }
+                                    );
                             });
-                        });
-                    }
                 });
             } else if (json.type == "delete") {
                 var optionStr;
@@ -113,19 +140,19 @@ http.createServer(function (req, res) {
                 var event = "event:" + json.event;
                 var eventAction = "action:" + json.event + ":" + json.action;
                 if (!optionStr) {
-                    client.smembers(eventAction, function(err, options) {
+                    db.smembers(eventAction, function(err, options) {
                         if (options) {
-                            client.srem(event, json.action);
+                            db.srem(event, json.action);
                             options.unshift(eventAction);
-                            client.del.apply(client, options);
+                            db.del.apply(db, options);
                         }
                     });
                 } else {
-                    client.smembers(eventAction, function (err, options) {
+                    db.smembers(eventAction, function (err, options) {
                         if (options && options.length > 0) {
                             options.forEach(function (optionIndex, i) {
                                 var optionKey = "option:" + optionIndex;
-                                client.get(optionKey, function (err, option) {
+                                db.get(optionKey, function (err, option) {
                                     var savedStr;
                                     try {
                                         savedStr = JSON.stringify(JSON.parse(option));
@@ -134,8 +161,8 @@ http.createServer(function (req, res) {
                                     }
                                     if (savedStr) {
                                         if (savedStr == optionStr) {
-                                            client.srem(eventAction, optionIndex);
-                                            client.del(optionKey);
+                                            db.srem(eventAction, optionIndex);
+                                            db.del(optionKey);
                                         }
                                     }
                                 });
