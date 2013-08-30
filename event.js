@@ -31,6 +31,16 @@ var db = {
     del: Q.nbind(client.del, client)
 }
 
+function compose(promise) {
+    var args = Array.prototype.slice.call(arguments,1).map(function (a) {
+        var defer = Q.defer();
+        defer.resolve(a);
+        return defer.promise;
+    });
+    args.unshift(promise);
+    return Q.all(args);
+}
+
 http.createServer(function (req, res) {
     req.content = "";
     req.addListener("data", function(chunk) {
@@ -81,56 +91,52 @@ http.createServer(function (req, res) {
                 .then(function(actions) {
                     console.log(actions);
                     console.log("Actions: " + actions);
-                    return Q.all(actions.map(
+                    var promises = actions.map(
                         function (action) {
                             console.log("Do '" + action + "'");
-                            // TODO: wrap this and pass along with the promise
                             var eventAction = "action:" + json.event + ":" + action;
-                            return db.smembers(eventAction);
-                        })).then(
-                            function (options) {
-                                console.log(options);
-                                console.log("Options: " + options);
-                                var merged = [].concat.apply([], options);
-                                console.log(merged);
-                                return Q.all(merged.map(
-                                    function (optionIndex) {
-                                        var optionKey = "option:" + optionIndex;
-                                        console.log("Option key: " + optionKey);
-                                        return db.get(optionKey);
-                                    })).then(
-                                        function (options) {
-                                            console.log(options);
-                                            options.forEach(function (option) {
-                                                console.log("Testing");
-                                                if (option) {
-                                                    console.log("Option: " + option);
-                                                    var jsOption;
-                                                    try {
-                                                        jsOption = JSON.parse(option);
-                                                    } catch (e) {
-                                                        console.log(e);
-                                                    }
-                                                    if (jsOption) {
-                                                        console.log(jsOption);
-                                                        doPost(jsOption);
-                                                        if (jsOption.durable !== true) {
-                                                            db.srem(eventAction, optionIndex)
-                                                            db.del(optionKey)
-                                                        } else {
-                                                            nonDurable = false;
-                                                        }
-                                                    }
-                                                } else {
-                                                    // it expired
-                                                    console.log("Expired");
-                                                    db.srem(eventAction, optionIndex).done();
-                                                }
-                                            });
+                            return compose(db.smembers(eventAction), eventAction);
+                        }
+                    );
+                    return Q.all(promises);
+                })
+                .then(function (options) {
+                    console.log(options);
+                    console.log("Options: " + options);
+                    options.forEach(
+                        function (optionIndex) {
+                            var eventAction = optionIndex[1];
+                            var optionKey = "option:" + optionIndex[0];
+                            console.log("Option key: " + optionKey);
+                            db.get(optionKey)
+                            .then(function (option) {
+                                console.log(option);
+                                if (option) {
+                                    console.log("Option: " + option);
+                                    var jsOption;
+                                    try {
+                                        jsOption = JSON.parse(option);
+                                    } catch (e) {
+                                        console.log(e);
+                                    }
+                                    if (jsOption) {
+                                        console.log(jsOption);
+                                        doPost(jsOption);
+                                        if (jsOption.durable !== true) {
+                                            client.srem(eventAction, optionIndex);
+                                            client.del(optionKey);
+                                        } else {
+                                            nonDurable = false;
                                         }
-                                    );
-                            });
-                });
+                                    }
+                                } else {
+                                    // it expired
+                                    console.log("Expired");
+                                    client.srem(eventAction, optionIndex);
+                                }
+                            }).done();
+                        });
+                }).done();
             } else if (json.type == "delete") {
                 var optionStr;
                 if (json.options) {
