@@ -1,7 +1,7 @@
 var url = require("url");
 var redis = require("redis");
 var http = require("http");
-var Handle = require("./handle");
+var Handler = require("./handler");
 // This auth_pass hasn't been released
 client = redis.createClient(19844, "pub-redis-19844.us-east-1-4.3.ec2.garantiadata.com", {auth_pass: "hoiio123kid"});
 client.auth("hoiio123kid", function () {
@@ -9,7 +9,7 @@ client.auth("hoiio123kid", function () {
     client.setnx("counter", 0);
 });
 
-var handle = new Handle(client);
+var handler = new Handler(client);
 
 client.on("error", function (err) {
     console.log("Error " + err);
@@ -38,11 +38,11 @@ http.createServer(function (req, res) {
         if (validate(json)) {
             console.log(json.type);
             if (json.type == "register") {
-                handle.register(json);
+                handler.register(json);
             } else if (json.type == "invoke") {
-                handle.invoke(json);
+                handler.invoke(json);
             } else if (json.type == "delete") {
-                handle.delete(json);
+                handler.delete(json);
             }
         }
     });

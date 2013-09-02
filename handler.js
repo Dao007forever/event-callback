@@ -2,7 +2,7 @@ var Q = require("q");
 var querystring = require("querystring");
 var request = require("request");
 
-function Handle(client) {
+function Handler(client) {
     this.client = client;
     this.db = {
         get: Q.nbind(client.get, client),
@@ -16,7 +16,7 @@ function Handle(client) {
     };
 }
 
-Handle.prototype.register = function (json) {
+Handler.prototype.register = function (json) {
     var self = this;
     var options;
     if (json.options) {
@@ -45,7 +45,7 @@ Handle.prototype.register = function (json) {
     }
 }
 
-Handle.prototype.invoke = function (json) {
+Handler.prototype.invoke = function (json) {
     var self = this;
     console.log(json.event + " happened");
     var event = "event:" + json.event;
@@ -104,7 +104,7 @@ Handle.prototype.invoke = function (json) {
         }).done();
 }
 
-Handle.prototype.delete = function (json) {
+Handler.prototype.delete = function (json) {
     var self = this;
     var optionStr;
     if (json.options) {
@@ -188,4 +188,4 @@ function doPost (options) {
     });
 }
 
-module.exports = Handle;
+module.exports = Handler;
