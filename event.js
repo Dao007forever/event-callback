@@ -24,6 +24,10 @@ http.createServer(function (req, res) {
     req.content = "";
     req.addListener("data", function(chunk) {
         req.content += chunk;
+        if (req.content.length > 1e6) {
+            response.writeHead(413, {'Content-Type': 'text/plain'}).end();
+            req.connection.destroy();
+        }
     });
 
     req.addListener("end", function() {
@@ -45,9 +49,9 @@ http.createServer(function (req, res) {
                 handler.delete(json);
             }
         }
-    });
 
-    res.end("ack=success");
+        res.end("{status=success}");
+    });
 }).listen(5000);
 
 function validate (obj) {
