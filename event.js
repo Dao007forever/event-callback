@@ -51,7 +51,7 @@ http.createServer(function (req, res) {
             }
         }
 
-        res.end('{"status"="success"}');
+        res.end('{"status":"success"}');
     });
 }).listen(3000);
 
