@@ -1,6 +1,7 @@
 var Q = require("q");
 var querystring = require("querystring");
 var request = require("request");
+var timer = require("timers");
 
 function Handler(client) {
     this.client = client;
@@ -83,8 +84,7 @@ Handler.prototype.invoke = function (json) {
                                         console.log(e);
                                     }
                                     if (jsOption) {
-                                        console.log(jsOption);
-                                        doPost(jsOption);
+                                        doPost(jsOption, 3);
                                         if (jsOption.durable !== true) {
                                             self.client.srem(eventAction, index);
                                             self.client.del(optionKey);
@@ -163,11 +163,15 @@ function compose (promise) {
     return Q.all(args);
 }
 
-function doPost (options) {
+function doPost (options, retry) {
+    retry = retry || 0;
+    if (retry == 0) {
+        return;
+    }
+
     var url = options.url;
     var body = querystring.stringify(options.body);
     // An object of options to indicate where to post to
-    console.log(body);
     var postOptions = {
         uri: url,
         method: 'POST',
@@ -178,12 +182,14 @@ function doPost (options) {
         body: body
     };
 
-    console.log(postOptions);
     request(postOptions, function(err, response, body) {
+        console.log(options);
         if (!err && response.statusCode == 200) {
+            console.log("Status code: " + response.statusCode);
             console.log(body);
         } else {
-            console.log(err);
+            console.log("Error :" + err);
+            timer.setImmediate(doPost, options, retry - 1);
         }
     });
 }
