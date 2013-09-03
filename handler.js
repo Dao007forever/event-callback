@@ -48,11 +48,10 @@ Handler.prototype.register = function (json) {
 
 Handler.prototype.invoke = function (json) {
     var self = this;
-    console.log(json.event + " happened");
+    console.log("Invoke '" + json.event + "'' happened");
     var event = "event:" + json.event;
     self.db.smembers(event)
         .then(function(actions) {
-            console.log(actions);
             console.log("Actions: " + actions);
             var promises = actions.map(
                 function (action) {
@@ -64,8 +63,8 @@ Handler.prototype.invoke = function (json) {
             return Q.all(promises);
         })
         .then(function (options) {
+            console.log("Options: ");
             console.log(options);
-            console.log("Options: " + options);
             options.forEach(
                 function (optionAction) {
                     var eventAction = optionAction[1];
@@ -74,7 +73,6 @@ Handler.prototype.invoke = function (json) {
                         console.log("Option key: " + optionKey);
                         self.db.get(optionKey)
                             .then(function (option) {
-                                console.log(option);
                                 if (option) {
                                     console.log("Option: " + option);
                                     var jsOption;
@@ -95,7 +93,6 @@ Handler.prototype.invoke = function (json) {
                                 } else {
                                     // it expired
                                     console.log("Expired");
-                                    console.log(eventAction);
                                     self.client.srem(eventAction, index);
                                 }
                             }).done();
@@ -139,8 +136,8 @@ Handler.prototype.delete = function (json) {
                             } catch (e) {
                                 console.log(e);
                             }
-                            console.log(savedStr);
-                            console.log(optionStr);
+                            console.log("In db  : " + savedStr);
+                            console.log("Receive: " + optionStr);
                             if (savedStr) {
                                 if (savedStr == optionStr) {
                                     self.client.srem(eventAction, optionIndex);

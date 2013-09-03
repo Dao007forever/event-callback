@@ -33,6 +33,7 @@ http.createServer(function (req, res) {
     req.addListener("end", function() {
         //parse req.content and do stuff with it
         var json;
+        console.log(json);
         try {
             json = JSON.parse(req.content);
         } catch (e) {
