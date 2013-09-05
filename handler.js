@@ -86,8 +86,6 @@ Handler.prototype.invoke = function (json) {
                                         if (jsOption.durable !== true) {
                                             self.client.srem(eventAction, index);
                                             self.client.del(optionKey);
-                                        } else {
-                                            nonDurable = false;
                                         }
                                     }
                                 } else {
@@ -186,6 +184,7 @@ function doPost (options, retry) {
             console.log(body);
         } else {
             console.log("Error :" + err);
+            console.log("Status code: " + response.statusCode);
             timer.setImmediate(doPost, options, retry - 1);
         }
     });
