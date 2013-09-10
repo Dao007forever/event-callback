@@ -2,9 +2,11 @@ var url = require("url");
 var redis = require("redis");
 var http = require("http");
 var Handler = require("./handler");
+var config = require("./config");
+
 // This auth_pass hasn't been released
-client = redis.createClient(19844, "pub-redis-19844.us-east-1-4.3.ec2.garantiadata.com", {auth_pass: "hoiio123kid"});
-client.auth("hoiio123kid", function () {
+client = redis.createClient(config.redis.port, config.redis.host, {auth_pass: "hoiio123kid"});
+client.auth(config.redis.password, function () {
     console.log("Logged in");
     client.setnx("counter", 0);
 });
@@ -53,7 +55,7 @@ http.createServer(function (req, res) {
 
         res.end('{"status":"success"}');
     });
-}).listen(3000);
+}).listen(config.web.port);
 
 function validate (obj) {
     if (obj) {
