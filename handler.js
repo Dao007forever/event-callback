@@ -82,7 +82,8 @@ Handler.prototype.invoke = function (json) {
                                         console.log(e);
                                     }
                                     if (jsOption) {
-                                        doPost(jsOption, 3);
+                                        // wait 1s before doPost, open may not have created UserApp
+                                        timer.setTimeout(doPost, 1000, jsOption, 3);
                                         if (jsOption.durable !== true) {
                                             self.client.srem(eventAction, index);
                                             self.client.del(optionKey);
