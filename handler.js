@@ -182,10 +182,19 @@ function doPost (options, retry) {
         if (!err && response.statusCode == 200) {
             console.log("Status code: " + response.statusCode);
             console.log(body);
+            try {
+                bodyJson = JSON.parse(body);
+            } catch (e) {
+                console.log(e);
+                timer.setTimeout(doPost, 1000, options, retry - 1);
+            }
+            if (bodyJson.status != "success_ok") {
+                timer.setTimeout(doPost, 1000, options, retry - 1);
+            }
         } else {
             console.log("Error :" + err);
             console.log("Status code: " + response.statusCode);
-            timer.setImmediate(doPost, options, retry - 1);
+            timer.setTimeout(doPost, 1000, options, retry - 1);
         }
     });
 }
