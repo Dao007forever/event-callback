@@ -3,12 +3,25 @@
     "version": "0.0.1",
     "private": true,
     "scripts" : {
-        "start" : "node event.js"
+        "start" : "export NODE_EVN=production; node event.js",
+        "test" : "export NODE_ENV=test; make test"
+    },
+    "engines": {
+        "node": "0.10.26"
     },
     "dependencies": {
         "redis": "0.10.1",
         "request": "2.34.0",
         "hiredis": "0.1.16",
-        "q": "2.0.0"
+        "q": "2.0.0",
+        "config": "0.4.35",
+        "js-yaml": "3.0.2"
+    },
+    "devDependencies": {
+        "node-redis-mock": "*",
+        "proxyquire": "*",
+        "sinon": "*",
+        "mocha": "*",
+        "chai": "*"
     }
 }

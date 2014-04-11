@@ -1,15 +1,17 @@
 var url = require("url");
 var redis = require("redis");
 var http = require("http");
-var Handler = require("./src/handler");
-var config = require("./config");
+var Handler = require("./lib/handler");
+var config = require("config");
 
 // Create only 1 client and login
-client = redis.createClient(config.redis.port, config.redis.host);
-client.auth(config.redis.password, function () {
-    console.log("Logged in");
-    client.setnx("counter", 0);
-});
+client = redis.createClient(config.Redis.port, config.Redis.host);
+if (config.Redis.password) {
+    client.auth(config.Redis.password, function () {
+        console.log("Logged in");
+        client.setnx("counter", 0);
+    });
+}
 
 var handler = new Handler(client);
 
@@ -59,7 +61,7 @@ http.createServer(function (req, res) {
 
         res.end('{"status":"success"}');
     });
-}).listen(config.web.port);
+}).listen(config.Web.port);
 
 function validate (obj) {
     if (obj) {
