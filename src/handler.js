@@ -6,14 +6,14 @@ var timer = require("timers");
 function Handler(client) {
     this.client = client;
     this.db = {
-        get: Q.nbind(client.get, client),
-        set: Q.nbind(client.set, client),
-        incr: Q.nbind(client.incr, client),
-        expire: Q.nbind(client.expire, client),
-        sadd: Q.nbind(client.sadd, client),
-        srem: Q.nbind(client.srem, client),
-        smembers: Q.nbind(client.smembers, client),
-        del: Q.nbind(client.del, client)
+        get: Q.denodeify(client.get.bind(client)),
+        set: Q.denodeify(client.set.bind(client)),
+        incr: Q.denodeify(client.incr.bind(client)),
+        expire: Q.denodeify(client.expire.bind(client)),
+        sadd: Q.denodeify(client.sadd.bind(client)),
+        srem: Q.denodeify(client.srem.bind(client)),
+        smembers: Q.denodeify(client.smembers.bind(client)),
+        del: Q.denodeify(client.del.bind(client))
     };
 }
 

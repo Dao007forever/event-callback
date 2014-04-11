@@ -1,7 +1,7 @@
 var url = require("url");
 var redis = require("redis");
 var http = require("http");
-var Handler = require("./handler");
+var Handler = require("./src/handler");
 var config = require("./config");
 
 // This auth_pass hasn't been released
