@@ -5,6 +5,7 @@ var timer = require("timers");
 
 function Handler(client) {
     this.client = client;
+    // Wrap node-redis in Q-promise
     this.db = {
         get: Q.denodeify(client.get.bind(client)),
         set: Q.denodeify(client.set.bind(client)),
@@ -24,7 +25,9 @@ Handler.prototype.register = function (json) {
         options = JSON.stringify(json.options);
     }
     console.log("Register '" + json.event + "' => '" + json.action + "' with option '" + options + "'");
-    self.db.sadd("event:" + json.event, json.action);
+
+    // Each event will contain a set of actions
+    self.client.sadd("event:" + json.event, json.action);
     if (options) {
         var expire;
         if (json.options.expire) {
@@ -38,6 +41,7 @@ Handler.prototype.register = function (json) {
             .then(
                 function (reply) {
                     var optionIndex = "option:" + reply;
+                    // Each action is given an id
                     self.db.sadd("action:" + json.event + ":" + json.action, reply);
                     self.db.set(optionIndex, options);
                     self.db.expire(optionIndex, expire);
@@ -56,7 +60,9 @@ Handler.prototype.invoke = function (json) {
             var promises = actions.map(
                 function (action) {
                     console.log("Do '" + action + "'");
+                    // The key of the action
                     var eventAction = "action:" + json.event + ":" + action;
+                    // return a promise of action ids and the action name
                     return compose(self.db.smembers(eventAction), eventAction);
                 }
             );
@@ -84,6 +90,7 @@ Handler.prototype.invoke = function (json) {
                                     if (jsOption) {
                                         // wait 1s before doPost, open may not have created UserApp
                                         timer.setTimeout(doPost, 1000, jsOption, 3);
+                                        // Remove the action if it's not durable
                                         if (jsOption.durable !== true) {
                                             self.client.srem(eventAction, index);
                                             self.client.del(optionKey);
@@ -110,17 +117,19 @@ Handler.prototype.delete = function (json) {
     var event = "event:" + json.event;
     var eventAction = "action:" + json.event + ":" + json.action;
     if (!optionStr) {
+        // Remove all the action ids
         self.db.smembers(eventAction)
             .then(function (options) {
                 self.db.srem(event, json.action);
                 var optionKeys = options.map(function (index) {
-                    return "option:".concat(index);
+                    return "option:" + index;
                 });
                 optionKeys.unshift(eventAction);
                 console.log(optionKeys);
-                self.db.del.apply(self.db, optionKeys);
+                self.client.del(optionKeys);
             }).done();
     } else {
+        // Remove only the actions that have options matching the given option
         self.db.smembers(eventAction)
             .then(function (options) {
                 console.log(options);
@@ -149,13 +158,11 @@ Handler.prototype.delete = function (json) {
     }
 }
 
-function compose (promise) {
-    var args = Array.prototype.slice.call(arguments,1).map(function (a) {
-        var defer = Q.defer();
-        defer.resolve(a);
-        return defer.promise;
-    });
-    args.unshift(promise);
+// This function will transform an array of arguments containing promises into a promise, e.g
+// [promise, A, B, ...] => all(promise, promise resolving to A, promise resolving to B, ...)
+// We do this because Q.all() only accepts an array of promises
+function compose() {
+    var args = Array.prototype.slice.apply(arguments);
     return Q.all(args);
 }
 
