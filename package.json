@@ -19,6 +19,8 @@
     },
     "devDependencies": {
         "node-redis-mock": "*",
+        "proxyquire": "*",
+        "sinon": "*",
         "mocha": "*",
         "chai": "*"
     }
