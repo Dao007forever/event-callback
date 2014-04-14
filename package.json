@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "private": true,
     "scripts" : {
-        "start" : "export NODE_EVN=production; node event.js",
+        "start" : "export NODE_ENV=production; node event.js",
         "test" : "export NODE_ENV=test; make test"
     },
     "engines": {
