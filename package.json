@@ -15,7 +15,8 @@
         "hiredis": "0.1.16",
         "q": "2.0.0",
         "config": "0.4.35",
-        "js-yaml": "3.0.2"
+        "js-yaml": "3.0.2",
+        "winston": "0.7.3"
     },
     "devDependencies": {
         "node-redis-mock": "*",

@@ -2,13 +2,16 @@ var url = require("url");
 var redis = require("redis");
 var http = require("http");
 var Handler = require("./lib/handler");
+var logging = require("./lib/logger");
 var config = require("config");
+
+var logger = logging.Logging().get('main');
 
 // Create only 1 client and login
 client = redis.createClient(config.Redis.port, config.Redis.host);
 if (config.Redis.password) {
     client.auth(config.Redis.password, function () {
-        console.log("Logged in");
+        logger.debug("Logged in");
         client.setnx("counter", 0);
     });
 }
@@ -16,13 +19,13 @@ if (config.Redis.password) {
 var handler = new Handler(client);
 
 client.on("error", function (err) {
-    console.log("Error " + err);
+    logger.debug("Error " + err);
 });
 
 // Send QUIT command to Redis on exit
 process.on("exit", function() {
     client.quit();
-    console.log("About to exit");
+    logger.debug("About to exit");
 });
 
 http.createServer(function (req, res) {
@@ -41,15 +44,15 @@ http.createServer(function (req, res) {
     req.addListener("end", function() {
         // parse req.content and do stuff with it
         var json;
-        console.log(req.content);
+        logger.debug(req.content);
         try {
             json = JSON.parse(req.content);
         } catch (e) {
-            console.log(e);
+            logger.debug(e);
         }
 
         if (validate(json)) {
-            console.log(json.type);
+            logger.debug(json.type);
             if (json.type == "register") {
                 handler.register(json);
             } else if (json.type == "invoke") {
@@ -69,7 +72,7 @@ function validate (obj) {
             return true;
         }
     }
-    console.log("FAILED");
+    logger.debug("FAILED");
     return false;
 }
 
