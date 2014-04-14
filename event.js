@@ -29,6 +29,17 @@ process.on("exit", function() {
 });
 
 http.createServer(function (req, res) {
+    var successEnd = function() {
+        res.end('{"status":"success"}');
+    };
+
+    var failEnd = function(err) {
+        res.end('{"status":"fail"}');
+        if (err) {
+            logger.error(err.message);
+        }
+    }
+
     req.content = "";
     // Dealing with multipart
     req.addListener("data", function(chunk) {
@@ -48,21 +59,24 @@ http.createServer(function (req, res) {
         try {
             json = JSON.parse(req.content);
         } catch (e) {
-            logger.debug(e);
+            logger.debug(e.message);
         }
 
         if (validate(json)) {
             logger.debug(json.type);
             if (json.type == "register") {
-                handler.register(json);
+                handler.register(json)
+                    .done(successEnd, failEnd);
             } else if (json.type == "invoke") {
-                handler.invoke(json);
+                handler.invoke(json)
+                    .done(successEnd, failEnd);
             } else if (json.type == "delete") {
-                handler.delete(json);
+                handler.delete(json)
+                    .done(successEnd, failEnd);
             }
+        } else {
+            failEnd(new Error("Invalid JSON type or event"));
         }
-
-        res.end('{"status":"success"}');
     });
 }).listen(config.Web.port);
 
